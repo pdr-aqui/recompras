@@ -279,6 +279,13 @@ body.gated #gate{display:grid} body.gated .app{display:none}
 #gate .btn{width:100%;justify-content:center} #gate .gmsg{min-height:18px;font-size:12.5px;color:var(--vermelho);margin:2px 0 10px}
 body.ro #drop,body.ro #dst,body.ro .src .btn,body.ro .ajf{display:none!important}
 body.online [onclick="limpa()"]{display:none!important}
+.rgl{display:flex;flex-direction:column}
+.rgh,.rgi{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(0,1.3fr) minmax(0,1.6fr) minmax(0,2.6fr);gap:10px;padding:10px 6px;border-bottom:1px solid var(--rosa-linha,#F0E2E4);align-items:start;font-size:13px}
+.rgh{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding-top:4px}
+.rgi small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35;overflow-wrap:anywhere} .rgi b.lk{cursor:pointer;overflow-wrap:anywhere} .rgi b.lk:hover{text-decoration:underline}
+.rgi.ven{background:#FDF1F2} .rgi.ok{opacity:.65}
+.rgp{display:flex;flex-wrap:wrap;gap:6px;align-items:center} .rgp .inp{min-width:0;flex:1 1 130px;padding-top:6px;padding-bottom:6px} .rgp .inp[type=date]{flex:0 1 150px} .rgp .rgw{flex-basis:100%}
+@media (max-width:720px){.rgh{display:none}.rgi{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.rgi>div:first-child,.rgi .rgp{grid-column:1/-1}}
 .dbf{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.dbf .inp{flex:1 1 200px;min-width:0}
 .ajf{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
 #print{display:none}
@@ -380,6 +387,7 @@ body.online [onclick="limpa()"]{display:none!important}
       <button class="ni on" data-v="fluxo"><span data-i="chart"></span>Visão geral</button>
       <button class="ni" data-v="unid"><span data-i="units"></span>Unidades<span class="cnt" id="n-unid"></span></button>
       <button class="ni" data-v="ret"><span data-i="clock"></span>Aguardando retirada<span class="cnt red" id="n-ret"></span></button>
+      <button class="ni" data-v="reg"><span data-i="calendar"></span>Previsão de liberação<span class="cnt" id="n-reg"></span></button>
       <button class="ni" data-v="sla"><span data-i="layers"></span>SLA da esteira<span class="cnt" id="n-sla"></span></button>
       <div class="grp">Relatórios</div>
       <button class="ni" data-v="export"><span data-i="download"></span>Exportar<span class="cnt" id="n-exp"></span></button>
@@ -433,6 +441,11 @@ body.online [onclick="limpa()"]{display:none!important}
         </div>
       </section>
 
+      <section class="view" id="v-reg">
+        <div class="card"><div class="toolbar"><div class="seg" id="regf"><button class="on" data-f="ag">Aguardando liberação</button><button data-f="sem">Sem previsão</button><button data-f="ven">Previsão vencida</button><button data-f="all">Todas com minuta</button></div><div class="cnt" id="regcnt"></div></div>
+          <div class="rgl" id="regl"></div><div class="note" id="regnote"></div></div>
+      </section>
+
       <section class="view" id="v-ret">
         <div class="grid2 eq">
           <div class="card"><div class="ch"><div><h3>Por fase no movfin</h3><p>Onde cada venda CEF sem retirada está parada</p></div></div><div class="tw"><table id="retfase"></table></div></div>
@@ -484,7 +497,7 @@ const ICON=(()=>{const P={
   cycle:'<path d="M4 12a8 8 0 0 1 13.7-5.7L20 8"/><path d="M20 3v5h-5"/><path d="M20 12a8 8 0 0 1-13.7 5.7L4 16"/><path d="M4 21v-5h5"/>',
   chart:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
   units:'<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M16 9h2a2 2 0 0 1 2 2v10"/><path d="M8 7h4M8 11h4M8 15h4"/><path d="M2 21h20"/>',
-  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   download:'<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/>',
   db:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
   sliders:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
@@ -567,7 +580,8 @@ const SB={url:'https://jspfqktrbimrarimpzgh.supabase.co',key:'sb_publishable_v5q
 const FONTES_DB=['base','t118','mov','atual','hist','slaf','slas','prev','sug','est'];
 let SES=null,DBI=null;
 const ONLINE=!!(SNAP&&SNAP.vazio);   // versão distribuída: sem dados no arquivo, tudo vem do banco
-const podeEnviar=()=>DBI&&DBI.eu?DBI.eu.papel!=='leitor':!ONLINE;
+const podeEnviar=()=>DBI&&DBI.eu?['admin','editor'].includes(DBI.eu.papel):!ONLINE;
+const podePrev=()=>!!(DBI&&DBI.eu&&['admin','editor','registro'].includes(DBI.eu.papel));
 const sbH=t=>({'Content-Type':'application/json',apikey:SB.key,...(t?{Authorization:'Bearer '+t}:{})});
 async function sbCall(url,opt){const r=await fetch(url,opt);const tx=await r.text();let j=null;try{j=tx?JSON.parse(tx):null}catch(e){}
   if(!r.ok){const m=(j&&(j.message||j.error_description||j.msg||j.error))||('HTTP '+r.status);const e=new Error(m);e.status=r.status;throw e}return j}
@@ -595,7 +609,7 @@ async function entraGate(){const em=$('#gte').value.trim(),se=$('#gts').value;if
   catch(e){SES=null;sesSalva();$('#gtm').textContent=msgErro(e);$('#gtgo').disabled=false}}
 async function acessos(){try{const L=await rpc('rec_usuarios');if(ATUAL)fecha();
   abre('Acessos ao painel',`${L.length} pessoas liberadas`,`<div style="padding:4px 6px"><table class="mlist"><thead><tr><th class="l">E-mail</th><th class="l">Papel</th><th>Ativo</th><th>Último acesso</th></tr></thead><tbody>${L.map(x=>`<tr><td class="l"><b>${esc(x.email)}</b></td><td class="l">${esc(x.papel)}</td><td>${x.ativo?'sim':'<span class="neg">bloqueado</span>'}</td><td>${esc(x.ultimo_acesso||'—')}</td></tr>`).join('')}</tbody></table>
-    <div class="dbf" style="margin-top:16px"><input class="inp" id="ace" type="email" placeholder="e-mail da pessoa"><select class="inp" id="acp" style="flex:0 1 230px"><option value="leitor">leitor · só consulta e PDF</option><option value="editor">editor · sobe bases e ajustes</option><option value="admin">admin · também libera acessos</option></select><button class="btn sm" onclick="salvaAcesso(true)">Liberar</button><button class="btn ghost sm" onclick="salvaAcesso(false)">Bloquear</button></div>
+    <div class="dbf" style="margin-top:16px"><input class="inp" id="ace" type="email" placeholder="e-mail da pessoa"><select class="inp" id="acp" style="flex:0 1 230px"><option value="leitor">leitor · só consulta e PDF</option><option value="registro">registro · só atualiza a previsão de liberação</option><option value="editor">editor · sobe bases e ajustes</option><option value="admin">admin · também libera acessos</option></select><button class="btn sm" onclick="salvaAcesso(true)">Liberar</button><button class="btn ghost sm" onclick="salvaAcesso(false)">Bloquear</button></div>
     <div class="note">A pessoa precisa ter login no Supabase (painel do Supabase → Authentication → Users → Add user). Aqui você escolhe o que ela pode fazer no painel de recompras. Para mudar o papel de alguém, informe o e-mail de novo com o papel novo.</div></div>`)}
   catch(e){toast('<b>Não foi possível listar os acessos</b>'+esc(msgErro(e)),'err')}}
 async function salvaAcesso(at){const em=$('#ace').value.trim(),pa=$('#acp').value;if(!em){toast('<b>Informe o e-mail</b>','info');return}
@@ -620,7 +634,7 @@ function exportaBases(){const wb=XLSX.utils.book_new();
   add('SLA FASES',SRC.slaf.rows);add('SLA SINTESE',SRC.slas.rows);add('PREVISAO REGISTRO',SRC.prev.rows);
   add('VGV SUGERIDO',Object.entries((SNAP.sug||{}).map||{}).map(([k,v])=>({chave:k,vgv_sugerido:v})));
   add('ESTOQUE',Object.entries((SNAP.est||{}).map||{}).map(([k,v])=>({chave:k,...v})));
-  add('AJUSTES MANUAIS',(SNAP.aj||[]).concat(AJL));
+  add('AJUSTES MANUAIS',(SNAP.aj||[]).concat(AJL));add('PREVISAO LIBERACAO',U.filter(u=>u.tipo==='CEF'&&u.dmin).map(u=>({unidade:u.ch,cliente:u.cli,data_minuta:u.dmin,data_assinatura:u.dass,entregue_registro:u.dreg,fase:u.fase,status:u.stt,retirada:u.ret,previsao_liberacao:u.prevLib||'',obs:u.prevSt||'',informado_por:u.prevPor||'',em:u.prevEm||''})));
   const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});const nm='Recompras_bases_'+new Date().toISOString().slice(0,10)+'.xlsx';
   baixa(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),nm);toast('<b>Bases exportadas</b>'+nm)}
 function rBanco(){const c=$('#dbcard');if(!c)return;let em='';try{em=localStorage.getItem('rec_email')||''}catch(e){}
@@ -677,12 +691,12 @@ async function leXlsx(file){
       const HN=H.map(h=>nk(h));
       const cpv=H.find(h=>nk(h).startsWith('PREVISAODELIBERA')),cun=H.find(h=>nk(h)==='UNIDADE');
       if(cpv&&cun){const cst=H.find(h=>nk(h)==='STATUS');const out=rows.map(x=>({k:nk(x[cun]),ch:String(x[cun]||''),dt:iso(x[cpv]),st:cst?String(x[cst]||''):''})).filter(x=>x.dt&&K.has(x.k));
-        SRC.prev={rows:out,em:agoraBR(),origem:'upload: '+file.name};await IDB.set('prev',SRC.prev);gravaFonte('prev',SRC.prev);toast(`<b>Previsão de liberação atualizada</b>${n0(out.length)} unidades com data do registro.`);dropState('ok',`<b>Previsão de liberação</b> atualizada com ${esc(file.name)} · ${n0(out.length)} unidades`);feito=true;break}
+        SRC.prev={rows:out,em:agoraBR(),origem:'upload: '+file.name};await IDB.set('prev',SRC.prev);gravaFonte('prev',SRC.prev);if(SES&&DBI){for(const x of out)await rpc('rec_previsao_salvar',{p_ch:x.ch,p_data:x.dt,p_obs:x.st||''});await lerBanco();tudo()}toast(`<b>Previsão de liberação atualizada</b>${n0(out.length)} unidades com data do registro.`);dropState('ok',`<b>Previsão de liberação</b> atualizada com ${esc(file.name)} · ${n0(out.length)} unidades`);feito=true;break}
       if(HN.includes('FASE')&&HN.includes('SINTESE')&&(HN.includes('ENTREVISTA')||HN.some(h=>h.startsWith('SINTESENEGOCIA')))){
         const fz=HN.includes('ENTREVISTA'),kk=fz?'slaf':'slas';const out=slaRows(rows,H).filter(x=>K.has(x.k));
         SRC[kk]={rows:out,em:agoraBR(),origem:'upload: '+file.name};await IDB.set(kk,SRC[kk]);gravaFonte(kk,SRC[kk]);toast(`<b>SLA ${fz?'fases':'sínteses'} atualizado</b>${n0(rows.length)} processos lidos, ${n0(out.length)} das unidades de recompra.`);dropState('ok',`<b>SLA ${fz?'fases':'sínteses'}</b> atualizado com ${esc(file.name)} · ${n0(out.length)} processos das unidades`);feito=true;break}
       if(H.includes('Numero_Contrato_CRM')&&H.includes('DataRetirada')){
-        const out=rows.map(x=>({k:ek(x.Empreendimento)+nk(x.Unidade),crm:String(x.Numero_Contrato_CRM||''),nome:String(x.Nome||''),fase:String(x.Fase||''),stt:String(x.Status||''),ret:iso(x.DataRetirada),fin:num(x.ValorFinanciamento),dvn:iso(x.DataVendaNova),dstat:dth(x.DataStatus)})).filter(x=>K.has(x.k));
+        const out=rows.map(x=>({k:ek(x.Empreendimento)+nk(x.Unidade),crm:String(x.Numero_Contrato_CRM||''),nome:String(x.Nome||''),fase:String(x.Fase||''),stt:String(x.Status||''),ret:iso(x.DataRetirada),fin:num(x.ValorFinanciamento),dvn:iso(x.DataVendaNova),dstat:dth(x.DataStatus),dmin:iso(x.DataMinuta),dass:iso(x.DataAssinatura),dreg:iso(x.DataEntregueRegistro)})).filter(x=>K.has(x.k));
         SRC.mov={rows:out,em:agoraBR(),origem:'upload: '+file.name};await IDB.set('mov',SRC.mov);gravaFonte('mov',SRC.mov);toast(`<b>Movfin atualizado</b>${n0(rows.length)} linhas lidas, ${n0(out.length)} das unidades de recompra.`);dropState('ok',`<b>Movfin</b> atualizado com ${esc(file.name)} · ${n0(out.length)} linhas das unidades`);feito=true;break}}
     if(!feito){toast('<b>'+esc(file.name)+'</b>não parece ser o 118, o movfin nem um relatório de SLA (cabeçalho não reconhecido).','err',7000);dropState('err','Arquivo não reconhecido: '+esc(file.name))}}
   catch(e){toast('<b>Erro ao ler '+esc(file.name)+'</b>'+esc(e.message),'err',7000);dropState('err','Erro ao ler '+esc(file.name))}
@@ -695,7 +709,7 @@ let U=[],F=null,REF='',AJL=[];
 function resolve(){
   const by=(rows)=>{const m=new Map();for(const r of rows){if(!m.has(r.k))m.set(r.k,[]);m.get(r.k).push(r)}return m};
   const T=by(SRC.t118.rows),M=by(SRC.mov.rows),A=by(SRC.atual.rows),H=by(SRC.hist.rows),SF=by(SRC.slaf.rows),SS=by(SRC.slas.rows);
-  const AJ=new Map();(SNAP.aj||[]).concat(AJL).forEach(a=>AJ.set(nk(a.ch)+'|'+a.campo,a));const AGORA=Date.now();const PV=new Map(((SRC.prev||{}).rows||[]).map(x=>[x.k,x]));
+  const AJ=new Map();(SNAP.aj||[]).concat(AJL).forEach(a=>AJ.set(nk(a.ch)+'|'+a.campo,a));const AGORA=Date.now();const PV=DBI&&DBI.previsoes?new Map(DBI.previsoes.filter(x=>x.data).map(x=>[nk(x.ch),{k:nk(x.ch),dt:x.data,st:x.obs||'',por:x.por,em:x.em}])):new Map(((SRC.prev||{}).rows||[]).map(x=>[x.k,x]));
   const HOJE=hoje();REF=mesDe(HOJE);
   U=SRC.base.rows.map((b,i)=>{
     const K=nk(b.ch),old=b.ant,u={i,ch:b.ch,ant:b.ant,st:b.st,custo:b.custo,drec:b.drec||HOJE,drecSem:!b.drec,dvalBase:b.dval||'',dstat:'',fonte:'—',tipo:'ESTOQUE',cli:'',dv:'',vgv:0,ent:0,fin:0,fase:'',stt:'',ret:'',crm:'',est:'',fn:''};
@@ -703,13 +717,13 @@ function resolve(){
     const q=t.filter(x=>['Normal','Quitado'].includes(x.st)&&FIN_ATIVA.test(nk(x.fn))&&!same(x.cli,old)).sort((a,b)=>a.dv<b.dv?-1:1).pop();
     const mov=(cli,crm)=>{const ms=M.get(K)||[];return (crm&&ms.find(x=>x.crm===crm))||ms.filter(x=>same(x.nome,cli)).pop()};
     if(q){Object.assign(u,{fonte:'118',cli:q.cli,dv:q.dv,vgv:q.vgv,ent:q.ent,fin:q.fin,crm:q.crm,fn:q.fn,tipo:(/^SIM/i.test(q.av)||(q.vgv>0&&q.entr!=null&&Math.abs(q.entr-q.vgv)<1))?'À VISTA':(nk(q.tv)==='DIRETO'?'DIRETO':'CEF'),entr:q.entr,avPor:/^SIM/i.test(q.av)?'VendaAVista = SIM no 118':(q.vgv>0&&q.entr!=null&&Math.abs(q.entr-q.vgv)<1)?'entrada recebida = valor da venda':''});
-      const mv=mov(q.cli,q.crm);if(mv)Object.assign(u,{fase:mv.fase,stt:mv.stt,ret:mv.ret,dstat:mv.dstat||''})}
+      const mv=mov(q.cli,q.crm);if(mv)Object.assign(u,{fase:mv.fase,stt:mv.stt,ret:mv.ret,dstat:mv.dstat||'',dmin:mv.dmin||'',dass:mv.dass||'',dreg:mv.dreg||''})}
     else{
       const a=(A.get(K)||[]).filter(x=>!same(x.cli,old)&&!/OUTRA UNIDADE|DESISTENCIA/.test(x.est)).pop();
       const h=(H.get(K)||[]).filter(x=>!same(x.cli,old)&&/^VENDA - SV - VALIDADO/.test(x.est)&&!t.some(y=>same(y.cli,x.cli))).sort((a,b)=>a.dc<b.dc?-1:1).pop();
       if(a)Object.assign(u,{fonte:'planilha atual',tipo:'ESTEIRA',cli:a.cli,dv:a.dc,vgv:a.vgv,ent:0,fin:0,entProp:a.ent,finProp:a.fin,est:a.est});
       else if(h){Object.assign(u,{fonte:'histórico',cli:h.cli,dv:h.dc,vgv:h.vgv,ent:h.ent,fin:h.fin,est:h.est,tipo:/VISTA/.test(nk(h.tv))?'À VISTA':(/DIRETO/.test(nk(h.tv))?'DIRETO':'CEF')});
-        const mv=mov(h.cli,'');if(mv)Object.assign(u,{fase:mv.fase,stt:mv.stt,ret:mv.ret,dstat:mv.dstat||''})}
+        const mv=mov(h.cli,'');if(mv)Object.assign(u,{fase:mv.fase,stt:mv.stt,ret:mv.ret,dstat:mv.dstat||'',dmin:mv.dmin||'',dass:mv.dass||'',dreg:mv.dreg||''})}
       else{const SG=(SNAP.sug||{}).map||{},ES=(SNAP.est||{}).map||{},e=ES[K];if(e)u.estoqueSt=e.st;
         if(SG[K]){u.vgv=SG[K];u.vgvRef='VGV sugerido (lista)'}
         else if(e&&e.tab>0){u.vgv=e.tab;u.vgvRef='preço de tabela (planilha de estoque)'}
@@ -725,7 +739,7 @@ function resolve(){
     u.ps=['CEF','DIRETO','À VISTA'].includes(u.tipo)?Math.max(0,u.vgv-u.ent-u.fin):0;
     // ajuste manual da Data Retirada (dado que a equipe não lançou no sistema)
     const aj=AJ.get(K+'|retirada');if(aj&&u.tipo==='CEF'){u.retSis=u.ret;u.ret=aj.valor;u.retAj=aj.obs||'ajuste manual'}
-    const pv=PV.get(K);if(pv&&u.tipo==='CEF'&&!u.ret){u.prevLib=pv.dt;u.prevSt=pv.st}
+    const pv=PV.get(K);if(pv&&pv.dt&&u.tipo==='CEF'&&!u.ret){u.prevLib=pv.dt;u.prevSt=pv.st;u.prevPor=pv.por||'';u.prevEm=pv.em||''}
     // SLA: processo nos relatórios de fases e sínteses (contrato do 118 ou unidade + nome)
     const pega=(m)=>{const xs=m.get(K)||[];return (u.crm&&xs.find(x=>x.crm===u.crm))||xs.filter(x=>u.cli&&same(x.nome,u.cli)).pop()};
     const sf=u.cli?pega(SF):null,ss=u.cli?pega(SS):null;
@@ -784,13 +798,13 @@ function fluxo(){
 const soma=a=>(a||[]).reduce((s,x)=>s+x.v,0);
 
 /* ---------- render ---------- */
-const PAGES={fluxo:['Visão geral','Fluxo de caixa projetado das recompras'],unid:['Unidades','Cada recompra com a venda nova, o repasse e o custo'],ret:['Aguardando retirada','Vendas CEF sem Data Retirada no movfin'],sla:['SLA da esteira','Quanto tempo cada caso ficou em cada etapa do repasse'],
+const PAGES={fluxo:['Visão geral','Fluxo de caixa projetado das recompras'],unid:['Unidades','Cada recompra com a venda nova, o repasse e o custo'],ret:['Aguardando retirada','Vendas CEF sem Data Retirada no movfin'],reg:['Previsão de liberação','Unidades com minuta: o registro informa quando o financiamento deve ser liberado'],sla:['SLA da esteira','Quanto tempo cada caso ficou em cada etapa do repasse'],
   export:['Exportar relatórios','Excel, CSV ou PDF gerados com os dados atuais do painel'],fontes:['Fontes de dados','De onde vem cada informação e quando foi atualizada'],regras:['Regras do cálculo','Parâmetros e lógica aplicada a cada linha do fluxo']};
 const isVend=u=>['CEF','DIRETO','À VISTA'].includes(u.tipo);
 const agRet=()=>U.filter(u=>u.tipo==='CEF'&&!u.ret);
 const atrasoTxt=()=>CFG.atraso==='proximo'?'no mês seguinte ao atual':CFG.atraso==='atual'?'no mês atual':'no mês original';
-function render(){resolve();fluxo();rKpis();rFluxo();rChart();rFases();rUnid();rRet();rSla();rFontes();rBanco();rExport();rNav();}
-function rNav(){$('#n-unid').textContent=U.length;const a=agRet().filter(u=>u.atrasada).length;$('#n-ret').textContent=a||'';$('#n-ret').style.display=a?'':'none';$('#n-ret').title=a+' projeções atrasadas';
+function render(){resolve();fluxo();rKpis();rFluxo();rChart();rFases();rUnid();rRet();rReg();rSla();rFontes();rBanco();rExport();rNav();}
+function rNav(){$('#n-unid').textContent=U.length;{const L=regLista();$('#n-reg').textContent=L.sem.length+L.ven.length||'';$('#n-reg').title=L.sem.length+' sem previsão · '+L.ven.length+' vencidas'}const a=agRet().filter(u=>u.atrasada).length;$('#n-ret').textContent=a||'';$('#n-ret').style.display=a?'':'none';$('#n-ret').title=a+' projeções atrasadas';
   $('#n-sla').textContent=U.filter(u=>u.sla).length;
   $('#n-exp').textContent=HX.length||'';$('#n-exp').style.display=HX.length?'':'none';}
 function rKpis(){
@@ -871,6 +885,25 @@ function rUnid(){
   $('#ucnt').textContent=`${a.length} de ${U.length} unidades`;
   $('#unid').innerHTML=UHEAD()+`<tbody>${a.map(u=>linha(u)).join('')||`<tr><td colspan="${UCOLS.length}"><div class="empty">${ICON.search}Nenhuma unidade com esses filtros.</div></td></tr>`}</tbody>`;}
 function limpaFiltros(){$('#fq').value='';$('#ft').value='';$('#fr').value='';rUnid()}
+let REGF='ag';
+const regLista=()=>{const m=U.filter(u=>u.tipo==='CEF'&&u.dmin);const ag=m.filter(u=>!u.ret);
+  return {m,ag,sem:ag.filter(u=>!u.prevLib),ven:ag.filter(u=>u.prevLib&&u.prevLib<hoje())}};
+function rReg(){const L=regLista(),pode=podePrev();
+  const a=(REGF==='all'?L.m:REGF==='sem'?L.sem:REGF==='ven'?L.ven:L.ag).slice().sort((x,y)=>(!!x.ret-!!y.ret)||((x.prevLib||'0')<(y.prevLib||'0')?-1:(x.prevLib||'0')>(y.prevLib||'0')?1:0)||(x.dmin<y.dmin?-1:1));
+  $('#regcnt').textContent=`${a.length} de ${L.m.length} unidades com minuta · ${L.sem.length} sem previsão · ${L.ven.length} vencidas`;
+  const dd=d=>d?Math.round((tms(hoje())-tms(d))/864e5):null;
+  $('#regl').innerHTML=a.length?`<div class="rgh"><span>Unidade</span><span>Minuta</span><span>Repasse</span><span>Previsão de liberação</span></div>`+a.map(u=>{const dm=dd(u.dmin);const ven=u.prevLib&&u.prevLib<hoje()&&!u.ret;
+    return `<div class="rgi${ven?' ven':''}${u.ret?' ok':''}"><div><b class="lk" onclick="ficha(${u.i})">${esc(u.ch)}</b><small>${esc(u.cli||'')} · financ. ${n0(u.fin)}</small></div>
+      <div>${fmtD(u.dmin)}<small>há ${dm} dias${u.dass?' · assin. '+fmtD(u.dass):''}${u.dreg?' · registro '+fmtD(u.dreg):''}</small></div>
+      <div>${esc((u.fase||'—').toLowerCase())}<small>${esc((u.stt||'').toLowerCase())}${u.ret?' · <b>retirada '+fmtD(u.ret)+'</b>':''}</small></div>
+      <div class="rgp">${u.ret?`<span class="pill live">liberado ${fmtD(u.ret)}</span>`:pode?`<input class="inp" type="date" id="rgd${u.i}" value="${u.prevLib||''}" aria-label="Previsão de liberação ${esc(u.ch)}"><input class="inp" id="rgo${u.i}" placeholder="observação" value="${esc(u.prevSt||'')}"><button class="btn sm" onclick="salvaPrev(${u.i})">Salvar</button>`
+        :(u.prevLib?`<b>${fmtD(u.prevLib)}</b>${u.prevSt?' <small>'+esc(u.prevSt.toLowerCase())+'</small>':''}`:'<span class="z">sem previsão</span>')}
+        ${!u.ret&&u.prevPor?`<small class="rgw">${ven?'<span class="neg">vencida · </span>':''}${esc(u.prevPor)} · ${esc(u.prevEm)}</small>`:ven?'<small class="rgw neg">vencida</small>':''}</div></div>`}).join(''):'<div class="note">Nenhuma unidade neste filtro.</div>';
+  $('#regnote').innerHTML=pode?'Informe a data prevista de liberação do financiamento e salve. A previsão entra no fluxo de caixa (linha "previsão do registro") e vale para todos. Data em branco + salvar apaga a previsão. Quando a retirada aparece no movfin, a unidade sai da lista.'
+    :'Lista das unidades CEF que já têm minuta (movfin) e ainda não tiveram retirada. A previsão é informada pela gerente de registros.'}
+async function salvaPrev(i){const u=U[i];const d=$('#rgd'+i).value||null,o=$('#rgo'+i).value.trim();
+  try{await rpc('rec_previsao_salvar',{p_ch:u.ch,p_data:d,p_obs:o});await lerBanco();tudo();toast(d?`<b>Previsão salva</b>${esc(u.ch)} · ${fmtD(d)}`:`<b>Previsão apagada</b>${esc(u.ch)}`)}
+  catch(e){toast('<b>Não foi possível salvar</b>'+esc(msgErro(e)),'err')}}
 function rRet(){
   const ag=agRet(),tf=ag.reduce((s,u)=>s+u.fin,0);
   const grp=(f)=>{const m=new Map();ag.forEach(u=>{const k=f(u);if(!m.has(k))m.set(k,[]);m.get(k).push(u)});return m};
@@ -922,7 +955,7 @@ function ficha(i){const u=U[i];const d=(k,v)=>`<dt>${k}</dt><dd>${v===''||v==nul
   abre(u.ch,`${u.tipo} · fonte da venda nova: ${u.fonte}`,`<div class="ficha">
   <div class="blk"><h4>Recompra · BASE GERAL</h4><dl>${d('Cliente antigo',esc(u.ant))+d('Status na planilha',esc(u.st))+d('Data da recompra',fmtD(u.drec)+(u.drecSem?' <small>(sem data na BASE GERAL: considerada hoje)</small>':''))+d('Previsão total custas (I)',n0(u.custo))}</dl></div>
   <div class="blk"><h4>Venda nova · ${esc(u.fonte)}</h4><dl>${d('Cliente',esc(u.cli))+d('Data',fmtD(u.dv))+d('Tipo',badge(u.tipo))+d('Finalidade 118',esc(u.fn))+d('Estágio planilha',esc(u.estSV)+(u.estSrc?` <small>(${u.estSrc})</small>`:''))+(u.avPor?d('À vista porque',esc(u.avPor)):'')+(u.valAj?d('Ajuste manual',`<span class="badge b-ESTEIRA">ajuste</span> <small>${esc(u.valAj)}</small>`):'')+d('Contrato CRM',esc(u.crm))+d('VGV',n0(u.vgv)+(u.vgvRef?' <small>('+u.vgvRef+')</small>':''))+d('Entrada',n0(u.ent)+(u.tipo==='ESTEIRA'&&u.entProp?` <small>(proposta: ${n0(u.entProp)} · não contabilizada)</small>`:''))+d('Financiamento',n0(u.fin)+(u.tipo==='ESTEIRA'&&u.finProp?` <small>(proposta: ${n0(u.finProp)} · não contabilizado)</small>`:''))+d('Pró-soluto',n0(u.ps))}</dl></div>
-  <div class="blk"><h4>Repasse · movfin</h4><dl>${d('Fase',esc(u.fase))+d('Status',esc(u.stt))+d('Data Retirada',fmtD(u.ret)+(u.retAj?` <span class="badge b-ESTEIRA">ajuste manual</span><br><small>${esc(u.retAj)}${u.retSis===''?' · movfin sem data':''}</small>`:''))+(u.prevLib?d('Previsão do registro',fmtD(u.prevLib)+(u.prevSt?` <small>(${esc(u.prevSt.toLowerCase())})</small>`:'')):'')+d('Validação da venda',u.dval?fmtD(u.dval)+` <small>(${esc(u.dvalSrc)})</small>`:'')+d('Projeção',u.proj?fmtD(u.proj)+(u.atrasada?' <span class="badge b-at">atrasada</span>':''):'')+d('Entra no fluxo em',u.mrec?fmtM(u.mrec):'')+d('Regra',u.rec)+(u.atrasada?d('Por que atrasou',`<span class="why">+${u.diasAtraso} dias · ${esc(u.motivo)}</span>`):'')}</dl>${u.tipo==='CEF'&&podeEnviar()?`<div class="ajf"><input class="inp" type="date" id="ajd" value="${u.retAj?u.ret:''}" style="min-width:0;width:150px"><button class="btn sec sm" onclick="salvaAjuste(${u.i})">Informar retirada</button>${u.retAj&&(SES&&DBI?(SNAP.aj||[]).some(a=>a.campo==='retirada'&&nk(a.ch)===nk(u.ch)):AJL.some(a=>nk(a.ch)===nk(u.ch)))?`<button class="btn ghost sm" onclick="removeAjuste(${u.i})">Remover</button>`:''}</div>`:''}</div></div>${slaBloco(u)}`)}
+  <div class="blk"><h4>Repasse · movfin</h4><dl>${d('Fase',esc(u.fase))+d('Status',esc(u.stt))+d('Data minuta',fmtD(u.dmin))+d('Data Retirada',fmtD(u.ret)+(u.retAj?` <span class="badge b-ESTEIRA">ajuste manual</span><br><small>${esc(u.retAj)}${u.retSis===''?' · movfin sem data':''}</small>`:''))+(u.prevLib?d('Previsão do registro',fmtD(u.prevLib)+(u.prevSt?` <small>(${esc(u.prevSt.toLowerCase())})</small>`:'')+(u.prevPor?`<br><small>${esc(u.prevPor)} · ${esc(u.prevEm)}</small>`:'')):'')+d('Validação da venda',u.dval?fmtD(u.dval)+` <small>(${esc(u.dvalSrc)})</small>`:'')+d('Projeção',u.proj?fmtD(u.proj)+(u.atrasada?' <span class="badge b-at">atrasada</span>':''):'')+d('Entra no fluxo em',u.mrec?fmtM(u.mrec):'')+d('Regra',u.rec)+(u.atrasada?d('Por que atrasou',`<span class="why">+${u.diasAtraso} dias · ${esc(u.motivo)}</span>`):'')}</dl>${u.tipo==='CEF'&&podeEnviar()?`<div class="ajf"><input class="inp" type="date" id="ajd" value="${u.retAj?u.ret:''}" style="min-width:0;width:150px"><button class="btn sec sm" onclick="salvaAjuste(${u.i})">Informar retirada</button>${u.retAj&&(SES&&DBI?(SNAP.aj||[]).some(a=>a.campo==='retirada'&&nk(a.ch)===nk(u.ch)):AJL.some(a=>nk(a.ch)===nk(u.ch)))?`<button class="btn ghost sm" onclick="removeAjuste(${u.i})">Remover</button>`:''}</div>`:''}</div></div>${slaBloco(u)}`)}
 
 /* ---------- navegação ---------- */
 function go(v){if(!PAGES[v])v='fluxo';
@@ -1090,6 +1123,7 @@ drop.onclick=()=>fi.click();drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){
 fi.onchange=async()=>{for(const f of fi.files)await leXlsx(f);fi.value=''};
 drop.ondragover=e=>{e.preventDefault();drop.classList.add('on')};drop.ondragleave=()=>drop.classList.remove('on');
 drop.ondrop=async e=>{e.preventDefault();drop.classList.remove('on');for(const f of e.dataTransfer.files)await leXlsx(f)};
+document.querySelectorAll('#regf button').forEach(b=>b.onclick=()=>{REGF=b.dataset.f;document.querySelectorAll('#regf button').forEach(x=>x.classList.toggle('on',x===b));rReg()});
 document.querySelectorAll('#slaf button').forEach(b=>b.onclick=()=>{SLAF=b.dataset.f;document.querySelectorAll('#slaf button').forEach(x=>x.classList.toggle('on',x===b));rSla()});
 const gq=$('#gq');gq.addEventListener('input',gbusca);gq.addEventListener('blur',()=>setTimeout(()=>$('#gres').classList.remove('show'),120));
 gq.addEventListener('keydown',e=>{const bs=[...$('#gres').querySelectorAll('button')];if(!bs.length)return;
@@ -1113,7 +1147,7 @@ function tudo(){document.body.classList.toggle('ro',!podeEnviar());document.body
     if(e.status===400||e.status===401||/sem_permissao/.test(e.message)){SES=null;sesSalva()}else{DBI=null;toast('<b>Banco indisponível</b>Usando a fotografia deste arquivo. '+esc(msgErro(e)),'err')}}
   if(ONLINE&&!DBI){mostraGate(SES?'':'');return}
   if(CFG.urlBase)await atualizaBase();
-  tudo();go((location.hash||'').slice(1)||'fluxo');
+  tudo();go((location.hash||'').slice(1)||(DBI&&DBI.eu&&DBI.eu.papel==='registro'?'reg':'fluxo'));
   const qi=new URLSearchParams(location.search).get('imprimir');if(qi)montaImpressao(qi);
   const h=await IDB.get('hist');
   atualizaSV(!h);   // histórico (38 MB) só na primeira vez ou pelo botão
